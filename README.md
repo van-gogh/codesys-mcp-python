@@ -1,145 +1,126 @@
 
-# @codesys/mcp-toolkit
+# 纯 Python MCP 服务器（CODESYS）
 
-![npm](https://img.shields.io/npm/v/@codesys/mcp-toolkit)
-![License](https://img.shields.io/github/license/johannesPettersson80/codesys-mcp-toolkit)
-![Node Version](https://img.shields.io/node/v/@codesys/mcp-toolkit)
+这是一个使用纯 Python 实现的 MCP 服务器，面向 CODESYS V3 编程环境。它通过调用 `CODESYS.exe --profile --noUI --runscript` 执行内嵌脚本，实现项目管理、POU 创建、代码读写与编译等自动化操作，并提供标准 MCP 资源与工具端点。
 
-A Model Context Protocol (MCP) server for CODESYS V3 programming environments. This toolkit enables seamless interaction between MCP clients (like Claude Desktop) and CODESYS, allowing automation of project management, POU creation, code editing, and compilation tasks via the CODESYS Scripting Engine.
+## 功能
+- 项目管理：打开、创建、保存、编译。
+- POU 管理：创建 Program/FunctionBlock/Function，读写声明与实现代码，创建属性与方法。
+- 资源：查询项目状态、遍历项目结构、读取指定 POU/方法/属性代码。
 
-## 🌟 Features
+## 目录结构
+- `mcp_codesys/`：核心包
+  - `cli.py`：命令入口（`--stdio` 启动 MCP，`--dry-run` 展示调用）。
+  - `server.py`：MCP 端点注册与调度。
+  - `codesys_interop.py`：生成临时脚本、执行 CODESYS 命令并解析结果。
+- `pyproject.toml`：项目元数据与脚本入口 `codesys-mcp-tool-py`。
+- `LICENSE`：许可证。
 
-- **Project Management**
-  - Open existing CODESYS projects (`open_project`)
-  - Create new projects from standard templates (`create_project`)
-  - Save project changes (`save_project`)
+## 安装
+- 需要 Python ≥3.9。
+- 安装依赖：`pip install mcp`。
 
-- **POU Management**
-  - Create Programs, Function Blocks, and Functions (`create_pou`)
-  - Set declaration and implementation code (`set_pou_code`)
-  - Create properties for Function Blocks (`create_property`)
-  - Create methods for Function Blocks (`create_method`)
-  - Compile projects (`compile_project`)
+## 什么是 MCP
+- MCP（Model Context Protocol）是一种标准协议，客户端（如 Claude Desktop）通过标准输入输出（stdio）与服务器通信，调用服务器暴露的“工具”和“资源”。
+- 本项目是一个 MCP 服务器，通过 `stdio` 与客户端连接；客户端只需在其配置中声明要调用的命令及参数。
 
-- **MCP Resources**
-  - `codesys://project/status`: Check scripting status and currently open project state.
-  - `codesys://project/{+project_path}/structure`: Retrieve the object structure of a specified project.
-  - `codesys://project/{+project_path}/pou/{+pou_path}/code`: Read the declaration and implementation code for a specified POU, Method, or Property accessor.
+## 使用
+- 干运行（仅查看将执行的 CODESYS 命令）：
+  - 未安装脚本入口：`python -m mcp_codesys.cli --dry-run --codesys-path "C:\\Program Files\\CODESYS 3.5.21.0\\CODESYS\\Common\\CODESYS.exe" --codesys-profile "CODESYS V3.5 SP21"`
+  - 已安装脚本入口：`codesys-mcp-tool-py --dry-run --codesys-path "..." --codesys-profile "..."`
+- 启动 MCP（stdio）：
+  - 未安装脚本入口：`python -m mcp_codesys.cli --stdio --codesys-path "..." --codesys-profile "..."`
+  - 已安装脚本入口：`codesys-mcp-tool-py --stdio --codesys-path "..." --codesys-profile "..."`
 
-## 📋 Prerequisites
+在 MCP 客户端（如 Claude Desktop）中将命令指向上述之一并传递必要参数即可。
 
-- **CODESYS V3**: A working CODESYS V3 installation (tested with 3.5 SP21) with the **Scripting Engine** component enabled during installation.
-- **Node.js**: Version 18.0.0 or later is recommended.
-- **MCP Client**: An MCP-enabled application (e.g., Claude Desktop).
+## 配置参数
+- `--codesys-path`：`CODESYS.exe` 的完整路径。
+- `--codesys-profile`：CODESYS 的 Profile 名称。
+- `--workspace`：工作区路径（可选）。
+- `--stdio`：以标准输入输出模式运行 MCP。
+- `--dry-run`：仅打印将要执行的 CODESYS 命令。
 
-*(Note: CODESYS uses Python 2.7 internally for its scripting engine, but this toolkit handles the interaction; you do not need to manage Python separately.)*
-
-## 🚀 Installation
-
-The recommended way to install is globally using npm:
-
-```bash
-npm install -g @codesys/mcp-toolkit
+## 在 MCP 客户端中导入配置（JSON）
+- 以 Claude Desktop 为例，在其 `settings.json` 的 `mcpServers` 字段中添加：
+- 使用 Python 模块方式（无需安装脚本入口）：
 ```
-
-This installs the package globally, making the `codesys-mcp-tool` command available in your system's terminal PATH.
-
-*(Advanced users can also install from source for development - see CONTRIBUTING.md if available).*
-
-## 🔧 Configuration (IMPORTANT!)
-
-This toolkit needs to know where your CODESYS installation is and which profile to use. Configuration is typically done within your MCP Client application (like Claude Desktop).
-
-### Recommended Configuration Method (Direct Command)
-
-Due to potential environment variable issues (especially with `PATH`) when launching Node.js tools via wrappers like `npx` within certain host applications (e.g., Claude Desktop), it is **strongly recommended** to configure your MCP client to run the installed command `codesys-mcp-tool` **directly**.
-
-**Example for Claude Desktop (`settings.json` -> `mcpServers`):**
-
-```json
-{
-  "mcpServers": {
-    // ... other servers ...
-    "codesys_local": {
-      "command": "codesys-mcp-tool", // <<< Use the direct command name
-      "args": [
-        // Pass arguments directly to the tool using flags
-        "--codesys-path", "C:\\Program Files\\Path\\To\\Your\\CODESYS\\Common\\CODESYS.exe",
-        "--codesys-profile", "Your CODESYS Profile Name"
-        // Optional: Add --workspace "/path/to/your/projects" if needed
-      ]
-    }
-    // ... other servers ...
-  }
-}
-```
-
-**Key Steps:**
-1.  Replace `"C:\\Program Files\\Path\\To\\Your\\CODESYS\\Common\\CODESYS.exe"` with the **full, correct path** to your specific `CODESYS.exe` file.
-2.  Replace `"Your CODESYS Profile Name"` with the **exact name** of the CODESYS profile you want to use (visible in the CODESYS UI).
-3.  Ensure the `codesys-mcp-tool` command is accessible in the system PATH where the MCP Client application runs. Global installation via `npm install -g` usually handles this.
-4.  Restart your MCP Client application (e.g., Claude Desktop) to apply the settings changes.
-
-### Alternative Configuration (Using `npx` - Not Recommended)
-
-Launching with `npx` has been observed to cause immediate errors (`'C:\Program' is not recognized...`) in some environments, likely due to how `npx` handles the execution environment. **Use the Direct Command method above if possible.** If you must use `npx`:
-
-```json
-// Example using npx (POTENTIALLY PROBLEMATIC - USE WITH CAUTION):
 {
   "mcpServers": {
     "codesys_local": {
-      "command": "npx",
+      "command": "python",
       "args": [
-        "-y", // Tells npx to install temporarily if not found globally
-        "@codesys/mcp-toolkit",
-        // Arguments for the tool MUST come AFTER the package name
-        "--codesys-path", "C:\\Program Files\\Path\\To\\Your\\CODESYS\\Common\\CODESYS.exe",
-        "--codesys-profile", "Your CODESYS Profile Name"
+        "-m", "mcp_codesys.cli",
+        "--stdio",
+        "--codesys-path", "C:\\Program Files\\CODESYS 3.5.21.0\\CODESYS\\Common\\CODESYS.exe",
+        "--codesys-profile", "CODESYS V3.5 SP21"
       ]
     }
   }
 }
 ```
-*(Note: The `--` separator after the package name might sometimes help `npx` but is not guaranteed to fix the environment issue.)*
+- 使用已安装脚本入口（`pip install -e .` 后可用）：
+```
+{
+  "mcpServers": {
+    "codesys_local": {
+      "command": "codesys-mcp-tool-py",
+      "args": [
+        "--stdio",
+        "--codesys-path", "C:\\Program Files\\CODESYS 3.5.21.0\\CODESYS\\Common\\CODESYS.exe",
+        "--codesys-profile", "CODESYS V3.5 SP21"
+      ]
+    }
+  }
+}
+```
+- 将上述 JSON 片段直接复制到客户端配置文件中即可完成导入。
 
-## 🛠️ Command-Line Arguments
+## 生成配置 JSON（可选）
+- 提供辅助脚本 `tools/generate_mcp_config.py`，自动输出可导入的 JSON：
+- 示例：
+  - `python tools/generate_mcp_config.py --mode module --codesys-path "C:\\Program Files\\CODESYS 3.5.21.0\\CODESYS\\Common\\CODESYS.exe" --codesys-profile "CODESYS V3.5 SP21"`
+  - `python tools/generate_mcp_config.py --mode script --codesys-path "..." --codesys-profile "..."`
 
-When running `codesys-mcp-tool` directly or configuring it, you can use these arguments:
+### 教程（一步一步生成并导入）
+- 前提：已安装 Python ≥3.9；本仓库在本机可运行。
+- 第1步：在项目根目录打开终端，执行以下其一生成 JSON：
+  - 模块方式（无需安装脚本入口）：
+    - `python tools/generate_mcp_config.py --mode module --codesys-path "C:\\Program Files\\CODESYS 3.5.21.0\\CODESYS\\Common\\CODESYS.exe" --codesys-profile "CODESYS V3.5 SP21"`
+  - 脚本入口方式（已执行 `pip install -e .`）：
+    - `python tools/generate_mcp_config.py --mode script --codesys-path "C:\\Program Files\\CODESYS 3.5.21.0\\CODESYS\\Common\\CODESYS.exe" --codesys-profile "CODESYS V3.5 SP21"`
+- 第2步：复制终端输出的 JSON 内容。
+- 第3步：打开 MCP 客户端的配置文件（例如 Claude Desktop 的 `settings.json`），把 JSON 片段粘贴到 `mcpServers` 字段内。
+- 第4步：保存配置并重启 MCP 客户端。
 
-*   `-p, --codesys-path <path>`: Full path to `CODESYS.exe`. (Required, overrides `CODESYS_PATH` env var, has a default but relying on it is not recommended).
-*   `-f, --codesys-profile <profile>`: Name of the CODESYS profile. (Required, overrides `CODESYS_PROFILE` env var, has a default but relying on it is not recommended).
-*   `-w, --workspace <dir>`: Workspace directory for resolving relative project paths passed to tools. Defaults to the directory where the command was launched (which might be unpredictable when run by another application). Setting this explicitly might be needed if using relative paths.
-*   `-h, --help`: Show help message.
-*   `--version`: Show package version.
+提示：Windows 路径中的反斜杠需要转义为双反斜杠（如 `C:\\Program Files\\...`）。
 
-## 🔍 Troubleshooting
+## 已暴露端点（概览）
+- 工具：
+  - `open_project(filePath, copyOnLock?, openMode?)`
+  - `create_project(filePath, templatePath?, templateName?, deviceId?, deviceName?, deviceVersion?)`
+  - `save_project(projectFilePath)`、`compile_project(projectFilePath)`
+  - `create_pou(...)`、`set_pou_code(...)`、`create_property(...)`、`create_method(...)`
+  - `list_templates()`、`list_devices()`、`add_device_to_project(...)`
+  - `deploy_application(projectFilePath)`、`download_and_start(projectFilePath)`
+  - `diagnose_path(projectPath, objectPath)`
+- 资源：
+  - `codesys://project/status`
+  - `codesys://project/{+project_path}/structure`
+  - `codesys://project/{+project_path}/pou/{+pou_path}/code`
+  - `codesys://project/{+project_path}/lock_status`
+  - `codesys://project/{+project_path}/diagnose_path/{+object_path}`
 
-*   **`'C:\Program' is not recognized...` error immediately after connection:**
-    *   **Cause:** This typically happens when the tool is launched via `npx` within an environment like Claude Desktop. The execution environment (`PATH` variable) provided to the process likely causes an internal CODESYS command (like running Python) to fail.
-    *   **Solution:** Configure your MCP Client to run the command **directly** (`"command": "codesys-mcp-tool"`) instead of using `"command": "npx"`. See the **Recommended Configuration Method** section above.
+## 常见问题与建议
+- 路径包含空格时：优先使用 Python 模块或脚本入口方式，避免 `npx`，并确保 `CODESYS.exe` 路径正确。
+- 工程并发访问：避免与 IDE 同时操作同一工程；只读任务可启用副本策略。
+- 编译结果：后续将提供真实错误/警告计数与列表的返回；当前返回结构已预留。
 
-*   **Tool Fails / Errors in Output:**
-    *   Check the logs from your MCP Client application (e.g., Claude Desktop logs). Look for `INTEROP:` messages or Python `DEBUG:` / `ERROR:` messages printed to stderr from the CODESYS script execution.
-    *   Ensure the `--codesys-path` and `--codesys-profile` arguments passed to the command are correct and point to a valid CODESYS installation with scripting enabled.
-    *   Verify the project paths and object paths you are passing to tools are correct (use forward slashes `/`).
-    *   Make sure no other CODESYS instances are running in conflicting ways (e.g., holding a lock on the profile).
+## 迁移说明
+- 已移除 Node/TS 相关文件与目录，项目完全使用 Python 实现。
+- 端点已在 `server.py` 中注册，交互逻辑由 `codesys_interop.py` 统一处理。
+- 后续将逐步完善脚本模板，实现完整对象查找、代码读写与编译流程。
 
-*   **`command not found: codesys-mcp-tool`:**
-    *   Ensure the package was installed globally (`npm install -g @codesys/mcp-toolkit`).
-    *   Ensure the npm global bin directory is in your system's `PATH` environment variable. Find it with `npm config get prefix` and add the `bin` subdirectory (or the main directory itself on Windows) to your PATH.
-
-*   **Check Logs:**
-    *   Claude Desktop logs: `C:\Users\<YourUsername>\AppData\Roaming\Claude\logs\` (Windows)
-
-## 🤝 Contributing
-Contributions, issues, and feature requests are welcome! Feel free to check the issues page. (Optionally add a CONTRIBUTING.md file with more details).
-
-## 📝 License
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🙏 Acknowledgements
-- The CODESYS GmbH team for the powerful CODESYS platform and its scripting engine.
-- The Model Context Protocol project for defining the interaction standard.
-- All contributors and users who help improve this toolkit.
+## 许可证
+本项目遵循 MIT 许可证，详见 `LICENSE` 文件。
 
