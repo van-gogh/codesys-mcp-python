@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mcp_codesys"
+version = "0.0.1"
+description = "Pure Python MCP server for CODESYS"
+requires-python = ">=3.9"
+dependencies = ["mcp>=0.1.0"]
+
+[project.scripts]
+codesys-mcp-tool-py = "mcp_codesys.cli:main"
